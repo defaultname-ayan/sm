@@ -121,6 +121,9 @@ is registered with Hostinger it can keep serving email there.
 
 **A VPS.** `npm run build && npm start` behind a reverse proxy. Node 20.9+.
 
+`vercel.json` pins the framework preset, so a deploy works even when the
+project has not been linked in the Vercel dashboard yet.
+
 Note that Hostinger's *shared* web hosting cannot run this app: it needs a
 Node server. Hostinger **VPS** plans can. If the plan turns out to be shared
 hosting, use it for the domain and mailboxes and deploy the app to Vercel.
