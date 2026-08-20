@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template belongs in the repo
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +41,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent tooling
+# Skill content is fetched from its source, like node_modules.
+# skills-lock.json is committed so the set can be restored.
+.agents/
+.claude/
