@@ -67,7 +67,15 @@ export function CorridorMap({
 }) {
   const [active, setActive] = useState<string | null>(null);
 
-  const plotted = parcels.filter((p) => p.coordinates);
+  // A geopoint can exist with missing values, so check the numbers rather
+  // than the object. Anything unplottable simply stays off the map.
+  const plotted = parcels.filter(
+    (p) =>
+      typeof p.coordinates?.lat === "number" &&
+      typeof p.coordinates?.lng === "number" &&
+      Number.isFinite(p.coordinates.lat) &&
+      Number.isFinite(p.coordinates.lng),
+  );
   if (plotted.length === 0) return null;
 
   return (

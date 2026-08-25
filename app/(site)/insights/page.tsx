@@ -8,7 +8,7 @@ import { getPageContent, getPosts } from "@/lib/data";
 import { formatDate, readingTime } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageContent("page.insights");
+  const page = await getPageContent("page-insights");
   return {
     title: page.seo?.metaTitle ?? "Insights",
     description: page.seo?.metaDescription ?? page.intro,
@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InsightsPage() {
   const [posts, page] = await Promise.all([
     getPosts(),
-    getPageContent("page.insights"),
+    getPageContent("page-insights"),
   ]);
   const [lead, ...rest] = posts;
 

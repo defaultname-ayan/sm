@@ -134,12 +134,12 @@ async function main() {
   // Header copy for the six standard pages. Fixed ids so the Studio can show
   // them as one editable item each.
   const PAGE_NAMES: Record<string, string> = {
-    "page.landBank": "Land Bank",
-    "page.services": "Services",
-    "page.insights": "Insights",
-    "page.caseStudies": "Case Studies",
-    "page.about": "About",
-    "page.contact": "Contact",
+    "page-landBank": "Land Bank",
+    "page-services": "Services",
+    "page-insights": "Insights",
+    "page-caseStudies": "Case Studies",
+    "page-about": "About",
+    "page-contact": "Contact",
   };
   pageEntries.forEach(([id, content], i) => {
     tx.createOrReplace({

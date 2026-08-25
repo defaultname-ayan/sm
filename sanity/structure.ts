@@ -11,14 +11,19 @@ const SINGLETON_IDS = SINGLETONS.map((s) => s.id);
 /**
  * Header copy for the standard pages. Fixed document ids so these behave as
  * one editable item each, rather than a list the client can add to or empty.
+ *
+ * The ids use a hyphen, never a dot. Sanity reads a `.` in a document id as a
+ * path separator, and only root-path documents are readable without a token -
+ * which is how the public site reads. An id like `page.about` publishes fine
+ * in the Studio and is then invisible to the website, forever.
  */
 const PAGES = [
-  { id: "page.landBank", title: "Land Bank" },
-  { id: "page.services", title: "Services" },
-  { id: "page.insights", title: "Insights" },
-  { id: "page.caseStudies", title: "Case Studies" },
-  { id: "page.about", title: "About" },
-  { id: "page.contact", title: "Contact" },
+  { id: "page-landBank", title: "Land Bank" },
+  { id: "page-services", title: "Services" },
+  { id: "page-insights", title: "Insights" },
+  { id: "page-caseStudies", title: "Case Studies" },
+  { id: "page-about", title: "About" },
+  { id: "page-contact", title: "Contact" },
 ];
 
 export const structure: StructureResolver = (S) =>

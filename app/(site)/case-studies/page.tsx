@@ -11,7 +11,7 @@ import {
 } from "@/lib/data";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageContent("page.caseStudies");
+  const page = await getPageContent("page-caseStudies");
   return {
     title: page.seo?.metaTitle ?? "Case Studies",
     description: page.seo?.metaDescription ?? page.intro,
@@ -23,7 +23,7 @@ export default async function CaseStudiesPage() {
     getCaseStudies(),
     getSiteSettings(),
     getHomePage(),
-    getPageContent("page.caseStudies"),
+    getPageContent("page-caseStudies"),
   ]);
 
   return (

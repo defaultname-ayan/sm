@@ -2,15 +2,28 @@
  * Data access layer.
  *
  * Every page reads through these functions rather than touching the Sanity
- * client directly, which keeps one rule in one place: when Sanity is not
- * configured, serve seed content so the site still renders.
+ * client directly, which keeps one rule in one place: the site must render
+ * completely whatever state the CMS is in.
  *
- * Singletons additionally fall back when the document is missing, because a
- * freshly created dataset has no `siteSettings` or `homePage` document until
- * `npm run seed` runs - and a missing singleton would otherwise blank the site.
- * Lists deliberately do NOT fall back once Sanity is live: an empty land bank
- * means the client emptied it, and we should show that honestly.
+ * There are three states, and they are deliberately treated differently:
+ *
+ *   1. Sanity not configured  - serve seed content, so the site runs with no
+ *                               setup at all.
+ *   2. Configured but unseeded - the project exists but `npm run seed` has not
+ *                               run yet. Empty lists fall back to seed content,
+ *                               because an empty dataset is a setup step that
+ *                               has not happened, not an editorial decision.
+ *                               Without this, connecting a fresh project makes
+ *                               most of the homepage vanish.
+ *   3. Configured and seeded  - the dataset is real. An empty land bank now
+ *                               means the client emptied it, and we show that
+ *                               honestly.
+ *
+ * A failed query always falls back to seed content in every state: a Sanity
+ * outage should degrade the site's freshness, never its structure.
  */
+
+import { cache } from "react";
 
 import { client } from "@/sanity/client";
 import { hasSanity } from "@/sanity/env";
@@ -21,6 +34,7 @@ import {
   caseStudyBySlugQuery,
   caseStudySlugsQuery,
   clientLogosQuery,
+  datasetSeededQuery,
   featuredParcelsQuery,
   homePageQuery,
   latestBrochureQuery,
@@ -48,128 +62,224 @@ import type {
   SiteSettings,
 } from "./types";
 
-/** Revalidate published content hourly; Sanity webhooks can shorten this later. */
-const REVALIDATE = 3600;
-
+/**
+ * Every read goes to Sanity live, uncached.
+ *
+ * Content was previously cached for an hour, which meant a publish in the
+ * Studio could take that long to reach the site, and a stale entry could even
+ * make the build prerender a page for a parcel that had since been deleted.
+ * For a site this size the queries are small and run in parallel, so reading
+ * live costs little and removes the entire class of "why has it not updated"
+ * problems: what you publish is what the next request serves.
+ */
 async function query<T>(q: string, params: Record<string, unknown> = {}): Promise<T | null> {
   if (!client) return null;
   try {
-    return await client.fetch<T>(q, params, {
-      next: { revalidate: REVALIDATE },
-    });
+    return await client.fetch<T>(q, params, { cache: "no-store" });
   } catch (error) {
+    // Next signals notFound(), redirect() and dynamic-rendering decisions by
+    // throwing. Swallowing those breaks its control flow: during a build it
+    // made pages silently prerender from seed content instead of the real
+    // dataset. Only genuine query failures fall back.
+    if (isFrameworkSignal(error)) throw error;
     console.error("[sanity] query failed, falling back to seed content:", error);
     return null;
   }
 }
 
+function isFrameworkSignal(error: unknown): boolean {
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  return (
+    typeof digest === "string" &&
+    (digest === "NEXT_NOT_FOUND" ||
+      digest.startsWith("NEXT_REDIRECT") ||
+      digest.startsWith("NEXT_HTTP_ERROR_FALLBACK") ||
+      digest.startsWith("DYNAMIC_SERVER_USAGE"))
+  );
+}
+
+/**
+ * Content is edited by hand, so a document can be published while still half
+ * filled in. A parcel with no slug cannot be linked to and is dropped; every
+ * other missing field degrades in the UI rather than throwing. Dropped
+ * documents are named in the log so the gap is findable rather than silent.
+ */
+function renderable<T>(items: T[]): T[] {
+  return items.filter((item) => {
+    const doc = item as { _id?: string; slug?: string } | null;
+    if (doc && typeof doc.slug === "string" && doc.slug.length > 0) return true;
+    console.warn(
+      `[sanity] Skipping document ${doc?._id ?? "(unknown)"}: it has no web address (slug) yet. ` +
+        "Open it in /studio and press Generate next to the web address field.",
+    );
+    return false;
+  });
+}
+
+/**
+ * Has the dataset been seeded? Cached per request so the probe costs one
+ * query per render at most, and cached by Next between renders like every
+ * other read.
+ */
+const isSeeded = cache(async (): Promise<boolean> => {
+  if (!hasSanity) return false;
+  const seeded = await query<boolean>(datasetSeededQuery);
+  if (seeded === false && process.env.NODE_ENV === "development") {
+    console.warn(
+      "[sanity] Connected, but this dataset has no starter content yet.\n" +
+        "         Serving built-in content for anything the dataset is missing.\n" +
+        "         Run `npm run seed` to make every section editable in /studio.",
+    );
+  }
+  return seeded === true;
+});
+
+/**
+ * A list read. Falls back to seed content when the query fails, and when the
+ * result is empty on a dataset that has not been seeded yet.
+ */
+async function list<T>(q: string, fallback: T[]): Promise<T[]> {
+  if (!hasSanity) return fallback;
+  const data = await query<T[]>(q);
+  if (data === null) return fallback;
+  const usable = renderable(data);
+  if (usable.length > 0) return usable;
+  return (await isSeeded()) ? [] : fallback;
+}
+
+/**
+ * A single document by slug. Mirrors `list()` on purpose: while the dataset is
+ * unseeded the listing pages render seed content, so the detail page behind
+ * each of those cards has to resolve too - otherwise every link 404s.
+ */
+async function bySlug<T>(
+  q: string,
+  slug: string,
+  fallback: T | undefined,
+): Promise<T | null> {
+  if (!hasSanity) return fallback ?? null;
+  const data = await query<T>(q, { slug });
+  if (data) return data;
+  return (await isSeeded()) ? null : (fallback ?? null);
+}
+
+/** A singleton read. Falls back whenever the document is absent. */
+async function single<T extends object>(
+  q: string,
+  fallback: T,
+  params: Record<string, unknown> = {},
+): Promise<T> {
+  if (!hasSanity) return fallback;
+  const data = await query<T>(q, params);
+  if (!data) return fallback;
+  // Merge field by field rather than swapping the whole document. These are
+  // single documents the client edits over time, and an individual field can
+  // be blank long before the document as a whole is. Falling back per field
+  // means a cleared heading shows the starter heading instead of rendering
+  // nothing (or throwing on the way there).
+  return { ...fallback, ...definedOnly(data) };
+}
+
+/** Drops null, undefined and empty-string values so they cannot mask a default. */
+function definedOnly<T extends object>(source: T): Partial<T> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    out[key] = value;
+  }
+  return out as Partial<T>;
+}
+
 // ── Singletons ─────────────────────────────────────────────────────────────
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  if (!hasSanity) return seed.siteSettings;
-  const data = await query<SiteSettings>(siteSettingsQuery);
-  return data ?? seed.siteSettings;
+  return single(siteSettingsQuery, seed.siteSettings);
 }
 
 export async function getHomePage(): Promise<HomePage> {
-  if (!hasSanity) return seed.homePage;
-  const data = await query<HomePage>(homePageQuery);
-  return data ?? seed.homePage;
+  return single(homePageQuery, seed.homePage);
 }
 
 /**
  * Header copy for one of the standard pages, by its fixed document id
- * (for example "page.about"). Falls back to the starter copy so a page never
+ * (for example "page-about"). Falls back to the starter copy so a page never
  * renders headless while the client is still filling the Studio in.
  */
 export async function getPageContent(id: string): Promise<PageContent> {
-  const fallback = seed.pages[id];
-  if (!hasSanity) return fallback;
-  const data = await query<PageContent>(pageContentQuery, { id });
-  return data ?? fallback;
+  return single(pageContentQuery, seed.pages[id], { id });
 }
 
 // ── Parcels ────────────────────────────────────────────────────────────────
 
 export async function getParcels(): Promise<Parcel[]> {
-  if (!hasSanity) return seed.parcels;
-  return (await query<Parcel[]>(parcelsQuery)) ?? seed.parcels;
+  return list(parcelsQuery, seed.parcels);
 }
 
 export async function getFeaturedParcels(): Promise<Parcel[]> {
-  if (!hasSanity) return seed.parcels.filter((p) => p.featured);
-  return (await query<Parcel[]>(featuredParcelsQuery)) ?? [];
+  return list(featuredParcelsQuery, seed.parcels.filter((p) => p.featured));
 }
 
 export async function getParcel(slug: string): Promise<Parcel | null> {
-  if (!hasSanity) return seed.parcels.find((p) => p.slug === slug) ?? null;
-  return await query<Parcel>(parcelBySlugQuery, { slug });
+  return bySlug(parcelBySlugQuery, slug, seed.parcels.find((p) => p.slug === slug));
 }
 
 export async function getParcelSlugs(): Promise<string[]> {
-  if (!hasSanity) return seed.parcels.map((p) => p.slug);
-  return (await query<string[]>(parcelSlugsQuery)) ?? [];
+  return list(parcelSlugsQuery, seed.parcels.map((p) => p.slug));
 }
 
 // ── Posts ──────────────────────────────────────────────────────────────────
 
 export async function getPosts(): Promise<Post[]> {
-  if (!hasSanity) return seed.posts;
-  return (await query<Post[]>(postsQuery)) ?? seed.posts;
+  return list(postsQuery, seed.posts);
 }
 
 export async function getPost(slug: string): Promise<Post | null> {
-  if (!hasSanity) return seed.posts.find((p) => p.slug === slug) ?? null;
-  return await query<Post>(postBySlugQuery, { slug });
+  return bySlug(postBySlugQuery, slug, seed.posts.find((p) => p.slug === slug));
 }
 
 export async function getPostSlugs(): Promise<string[]> {
-  if (!hasSanity) return seed.posts.map((p) => p.slug);
-  return (await query<string[]>(postSlugsQuery)) ?? [];
+  return list(postSlugsQuery, seed.posts.map((p) => p.slug));
 }
 
 // ── Case studies ───────────────────────────────────────────────────────────
 
 export async function getCaseStudies(): Promise<CaseStudy[]> {
-  if (!hasSanity) return seed.caseStudies;
-  return (await query<CaseStudy[]>(caseStudiesQuery)) ?? seed.caseStudies;
+  return list(caseStudiesQuery, seed.caseStudies);
 }
 
 export async function getCaseStudy(slug: string): Promise<CaseStudy | null> {
-  if (!hasSanity) return seed.caseStudies.find((c) => c.slug === slug) ?? null;
-  return await query<CaseStudy>(caseStudyBySlugQuery, { slug });
+  return bySlug(caseStudyBySlugQuery, slug, seed.caseStudies.find((c) => c.slug === slug));
 }
 
 export async function getCaseStudySlugs(): Promise<string[]> {
-  if (!hasSanity) return seed.caseStudies.map((c) => c.slug);
-  return (await query<string[]>(caseStudySlugsQuery)) ?? [];
+  return list(caseStudySlugsQuery, seed.caseStudies.map((c) => c.slug));
 }
 
 // ── Services ───────────────────────────────────────────────────────────────
 
 export async function getServices(): Promise<Service[]> {
-  if (!hasSanity) return seed.services;
-  return (await query<Service[]>(servicesQuery)) ?? seed.services;
+  return list(servicesQuery, seed.services);
 }
 
 export async function getService(slug: string): Promise<Service | null> {
-  if (!hasSanity) return seed.services.find((s) => s.slug === slug) ?? null;
-  return await query<Service>(serviceBySlugQuery, { slug });
+  return bySlug(serviceBySlugQuery, slug, seed.services.find((s) => s.slug === slug));
 }
 
 export async function getServiceSlugs(): Promise<string[]> {
-  if (!hasSanity) return seed.services.map((s) => s.slug);
-  return (await query<string[]>(serviceSlugsQuery)) ?? [];
+  return list(serviceSlugsQuery, seed.services.map((s) => s.slug));
 }
 
 // ── Misc ───────────────────────────────────────────────────────────────────
 
 export async function getClientLogos(): Promise<ClientLogo[]> {
-  if (!hasSanity) return seed.clientLogos;
-  return (await query<ClientLogo[]>(clientLogosQuery)) ?? seed.clientLogos;
+  return list(clientLogosQuery, seed.clientLogos);
 }
 
 export async function getLatestBrochure(): Promise<Brochure | null> {
   if (!hasSanity) return seed.brochure;
-  return (await query<Brochure>(latestBrochureQuery)) ?? seed.brochure;
+  const data = await query<Brochure>(latestBrochureQuery);
+  if (data) return data;
+  return (await isSeeded()) ? null : seed.brochure;
 }

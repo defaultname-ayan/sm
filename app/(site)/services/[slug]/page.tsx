@@ -6,13 +6,8 @@ import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { ContactCTA } from "@/components/sections/ContactCTA";
 import { PageHeader } from "@/components/site/PageHeader";
 import { RichText } from "@/components/ui/RichText";
-import { getService, getServiceSlugs, getServices, getSiteSettings } from "@/lib/data";
+import { getService, getServices, getSiteSettings } from "@/lib/data";
 import { urlForImage } from "@/sanity/image";
-
-export async function generateStaticParams() {
-  const slugs = await getServiceSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata(
   props: PageProps<"/services/[slug]">,

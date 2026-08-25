@@ -64,6 +64,15 @@ comfortably.
 
 Visiting `/studio` before step 3 shows a setup screen rather than an error.
 
+**Between steps 3 and 5 the site does not break.** Once the project ID is set
+but before `npm run seed` runs, the dataset is empty, and most homepage
+sections would otherwise delete themselves - the components render nothing
+when handed an empty list. The data layer detects an unseeded dataset (no
+`siteSettings` document) and keeps serving starter content for anything the
+dataset is missing, per list, so real documents you have already created show
+through while the rest stays intact. After seeding, empty means empty: if the
+client clears the land bank, the site shows that honestly.
+
 ### What the client can edit
 
 | Section in the Studio | Controls |
@@ -82,6 +91,11 @@ Visiting `/studio` before step 3 shows a setup screen rather than an error.
 section heading, every page header and all listing content are edited in the
 Studio. The only strings left in the source are form field labels, button
 text and the 404 page.
+
+After publishing in the Studio, an edit reaches the live site within an hour
+(pages are prerendered and revalidated hourly), or immediately on the next
+deploy. To make edits appear instantly, add a Sanity webhook pointing at a
+revalidation route - not wired up yet.
 
 Read time on articles is derived from the article body, so it can never drift
 out of sync with an edited post.
@@ -152,6 +166,27 @@ sanity/
   schemas/           the content model
 docs/superpowers/specs/   the approved design spec
 ```
+
+### How content reaches the site
+
+**Publishing is instant.** Every content read goes straight to Sanity,
+uncached, on each request (`cache: "no-store"`, and the Sanity CDN is off).
+Publish in the Studio, reload the page, the change is there. There is no
+webhook to configure and no revalidation window to wait out.
+
+The trade-off is deliberate: content pages are server-rendered per request
+rather than prerendered at build. For a site of this size those queries are
+small and run in parallel, and the cost is worth never having to explain why
+an edit has not appeared. If traffic ever makes that matter, the place to
+change it is the `query` helper in `lib/data.ts` (add `next: { tags }` and a
+`revalidateTag` webhook) rather than anywhere in the pages.
+
+**Half-finished documents will not break the site.** Content gets published
+mid-edit, so the read layer treats every field as possibly absent: a parcel
+with no extent shows "Extent on request" rather than throwing, a missing
+heading falls back to the starter copy field by field, and a document with no
+slug is skipped with a named warning in the server log (it cannot be linked
+to). One incomplete parcel used to take down the entire land bank page.
 
 ### Two conventions worth knowing
 

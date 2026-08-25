@@ -12,7 +12,7 @@ import {
 } from "@/lib/data";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageContent("page.services");
+  const page = await getPageContent("page-services");
   return {
     title: page.seo?.metaTitle ?? "Services",
     description: page.seo?.metaDescription ?? page.intro,
@@ -24,7 +24,7 @@ export default async function ServicesPage() {
     getServices(),
     getSiteSettings(),
     getHomePage(),
-    getPageContent("page.services"),
+    getPageContent("page-services"),
   ]);
 
   return (

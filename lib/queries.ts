@@ -33,8 +33,14 @@ export const siteSettingsQuery = defineQuery(
 
 export const homePageQuery = defineQuery(`*[_type == "homePage"][0]`);
 
+/**
+ * `coalesce(featured, false)`, not a bare `featured desc`. An unticked boolean
+ * in the Studio is absent, not `false`, and GROQ sorts null ahead of true in a
+ * descending sort - so a bare `featured desc` puts every featured parcel
+ * *below* every ordinary one, which is precisely backwards.
+ */
 export const parcelsQuery = defineQuery(
-  `*[_type == "parcel"] | order(featured desc, acres desc) { ${PARCEL_FIELDS} }`,
+  `*[_type == "parcel"] | order(coalesce(featured, false) desc, acres desc) { ${PARCEL_FIELDS} }`,
 );
 
 export const featuredParcelsQuery = defineQuery(
@@ -97,4 +103,14 @@ export const latestBrochureQuery = defineQuery(
   `*[_type == "brochure"] | order(issueMonth desc)[0] {
     _id, issueMonth, coverSummary, "fileUrl": file.asset->url
   }`,
+);
+
+/**
+ * True once the dataset holds the starter content (`npm run seed` writes the
+ * `siteSettings` singleton first). Used to tell "the CMS is connected but
+ * still empty" apart from "the client deliberately emptied this list", which
+ * is the difference between showing starter content and showing nothing.
+ */
+export const datasetSeededQuery = defineQuery(
+  `defined(*[_id == "siteSettings"][0]._id)`,
 );

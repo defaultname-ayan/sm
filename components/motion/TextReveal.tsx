@@ -21,13 +21,16 @@ export function TextReveal({
   as: Tag = "h1",
   delay = 0,
 }: {
-  text: string;
+  text?: string;
   className?: string;
   as?: "h1" | "h2" | "p";
   delay?: number;
 }) {
   const prefersReduced = useReducedMotion();
-  const words = text.split(" ");
+  // Defence in depth: this renders CMS copy, and a heading can be cleared in
+  // the Studio. Rendering nothing beats throwing on `undefined.split`.
+  const words = (text ?? "").split(" ").filter(Boolean);
+  if (words.length === 0) return null;
 
   if (prefersReduced) {
     return <Tag className={className}>{text}</Tag>;

@@ -12,7 +12,7 @@ import {
 } from "@/lib/data";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const page = await getPageContent("page.landBank");
+  const page = await getPageContent("page-landBank");
   return {
     title: page.seo?.metaTitle ?? "Land Bank",
     description: page.seo?.metaDescription ?? page.intro,
@@ -24,7 +24,7 @@ export default async function LandBankPage() {
     getParcels(),
     getSiteSettings(),
     getHomePage(),
-    getPageContent("page.landBank"),
+    getPageContent("page-landBank"),
   ]);
 
   return (

@@ -50,7 +50,12 @@ export function LandBankBrowser({ parcels }: { parcels: Parcel[] }) {
     [parcels],
   );
 
-  const totalAcres = filtered.reduce((sum, p) => sum + p.acres, 0);
+  // Skip parcels with no extent yet, otherwise one of them turns the whole
+  // total into NaN.
+  const totalAcres = filtered.reduce(
+    (sum, p) => sum + (typeof p.acres === "number" && Number.isFinite(p.acres) ? p.acres : 0),
+    0,
+  );
   const anyFilterActive = zone !== "All" || status !== "All" || deal !== "All";
 
   return (

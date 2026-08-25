@@ -3,10 +3,23 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-/** "12.18 Acres" - trims a trailing ".00" so whole numbers read cleanly. */
-export function formatAcres(acres: number): string {
-  const fixed = acres.toFixed(2).replace(/\.00$/, "");
-  return `${fixed} ${acres === 1 ? "Acre" : "Acres"}`;
+/**
+ * "12.18 Acres", trimming a trailing ".00" so whole numbers read cleanly.
+ *
+ * Tolerates a missing or non-numeric extent. A parcel can be published from
+ * the Studio before every field is filled in, and this value is rendered on
+ * the card, the map, the listing and the detail page: throwing here took down
+ * the whole land bank rather than degrading one line of one card.
+ */
+export function formatAcres(acres: number | null | undefined): string {
+  // Only a real number counts. Coercing would turn null and "" into 0, and
+  // "0 Acres" is a wrong statement about a parcel, not a missing one.
+  if (typeof acres !== "number" || !Number.isFinite(acres)) {
+    return "Extent on request";
+  }
+  const value = acres;
+  const fixed = value.toFixed(2).replace(/\.00$/, "");
+  return `${fixed} ${value === 1 ? "Acre" : "Acres"}`;
 }
 
 export function formatDate(value: string): string {

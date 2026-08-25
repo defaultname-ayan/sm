@@ -6,14 +6,9 @@ import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { PageHeader } from "@/components/site/PageHeader";
 import { RichText } from "@/components/ui/RichText";
 import { SmartImage } from "@/components/ui/SmartImage";
-import { getPost, getPostSlugs, getPosts, getSiteSettings } from "@/lib/data";
+import { getPost, getPosts, getSiteSettings } from "@/lib/data";
 import { formatDate, readingTime, whatsappLink } from "@/lib/utils";
 import { urlForImage } from "@/sanity/image";
-
-export async function generateStaticParams() {
-  const slugs = await getPostSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata(
   props: PageProps<"/insights/[slug]">,

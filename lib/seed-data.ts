@@ -173,42 +173,42 @@ export const homePage: HomePage = {
 
 /** Header copy for the six standard pages, keyed by their fixed document id. */
 export const pages: Record<string, PageContent> = {
-  "page.landBank": {
+  "page-landBank": {
     image: IMG.corridor,
     eyebrow: "Land Bank",
     heading: "Currently mandated parcels.",
     intro:
       "Every parcel listed here has been through our six-point verification framework. Where something is unresolved, we say so on the parcel itself.",
   },
-  "page.services": {
+  "page-services": {
     image: IMG.fields,
     eyebrow: "Advisory Services",
     heading: "Structured for every stage of acquisition.",
     intro:
       "From a single agricultural parcel to a five-hundred-acre township assembly. The work changes, the standard of verification does not.",
   },
-  "page.insights": {
+  "page-insights": {
     image: IMG.meadow,
     eyebrow: "Insights",
     heading: "Written for buyers, not search engines.",
     intro:
       "What we have learned examining land in Telangana: the failure modes, the regulations that catch people out, and what the corridors are actually doing.",
   },
-  "page.caseStudies": {
+  "page-caseStudies": {
     image: IMG.highway,
     eyebrow: "Case Studies",
     heading: "Deals structured. Capital deployed.",
     intro:
       "A selection of mandates we have closed, including the problems found during diligence. Those are the part worth reading.",
   },
-  "page.about": {
+  "page-about": {
     image: IMG.aerial,
     eyebrow: "About",
     heading: "We are paid by the buyer, so we can afford to be honest.",
     intro:
       "Sudha Square is a land advisory practice working across Hyderabad's growth corridors. We represent buyers: developers, NRIs and institutional investors. That means our incentive is to talk you out of a bad parcel rather than into one.",
   },
-  "page.contact": {
+  "page-contact": {
     image: IMG.ridge,
     eyebrow: "Contact",
     heading: "Brief us on a requirement.",

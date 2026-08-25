@@ -7,15 +7,9 @@ import { PageHeader } from "@/components/site/PageHeader";
 import { RichText } from "@/components/ui/RichText";
 import {
   getCaseStudy,
-  getCaseStudySlugs,
   getSiteSettings,
 } from "@/lib/data";
 import { urlForImage } from "@/sanity/image";
-
-export async function generateStaticParams() {
-  const slugs = await getCaseStudySlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata(
   props: PageProps<"/case-studies/[slug]">,

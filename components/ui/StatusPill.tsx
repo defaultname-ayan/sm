@@ -31,16 +31,22 @@ export function StatusPill({
   surface = "dark",
   className,
 }: {
-  status: ParcelStatus;
+  status?: ParcelStatus;
   /** "dark" sits over photography, "light" over ivory paper. */
   surface?: "dark" | "light";
   className?: string;
 }) {
+  // A parcel can be published before its status is set. Show nothing rather
+  // than an empty chip, and treat an unrecognised value as the quiet variant.
+  if (!status) return null;
+  const table = surface === "dark" ? ON_IMAGE : ON_PAPER;
+  const tone = table[status] ?? table.Mandated;
+
   return (
     <span
       className={cn(
         "label-sm inline-flex items-center rounded-chip px-2.5 py-1.5",
-        surface === "dark" ? ON_IMAGE[status] : ON_PAPER[status],
+        tone,
         className,
       )}
     >

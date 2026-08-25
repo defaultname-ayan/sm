@@ -8,14 +8,9 @@ import { ParcelCard } from "@/components/ui/ParcelCard";
 import { RichText } from "@/components/ui/RichText";
 import { SmartImage } from "@/components/ui/SmartImage";
 import { MetaChip, StatusPill } from "@/components/ui/StatusPill";
-import { getParcel, getParcelSlugs, getParcels, getSiteSettings } from "@/lib/data";
+import { getParcel, getParcels, getSiteSettings } from "@/lib/data";
 import { formatAcres, whatsappLink } from "@/lib/utils";
 import { urlForImage } from "@/sanity/image";
-
-export async function generateStaticParams() {
-  const slugs = await getParcelSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata(
   props: PageProps<"/land-bank/[slug]">,
